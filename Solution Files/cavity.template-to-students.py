@@ -11,7 +11,7 @@ import re
 # --- All files are globally accessible ---
 
 global fp1  # For output of iterative residual history
-global fptwo  # For output of field data (solution)
+global fp2  # For output of field data (solution)
 #   global fp3 # For writing the restart file
 #   global fp4 # For reading the restart file
 #   global fp5 # For output of final DE norms (only for MMS)
@@ -19,8 +19,8 @@ global fptwo  # For output of field data (solution)
 
 global imax, jmax, neq, nmax
 global zero, tenth, sixth, fifth, fourth, third, half, one, two, three, four, six
-global iterout, imms, isgs, irstr, ipgorder, lim, cfl, Cx, Cy, toler, rkappa, Re, pinf, uinf, rho, rhoinv, xmin, xmax, ymin, ymax, Cxtwo, Cytwo, fsmall
-global rlength, rmu, veltworef, dx, dy, rpi, phi0, phix, phiy, phixy, apx, apy, apxy, fsinx, fsiny, fsinxy
+global iterout, imms, isgs, irstr, ipgorder, lim, cfl, Cx, Cy, toler, rkappa, Re, pinf, uinf, rho, rhoinv, xmin, xmax, ymin, ymax, Cx2, Cy2, fsmall
+global rlength, rmu, vel2ref, dx, dy, rpi, phi0, phix, phiy, phixy, apx, apy, apxy, fsinx, fsiny, fsinxy
 
 # **Use these variables cautiously as these are globally accessible from all functions.**
 
@@ -69,7 +69,7 @@ imms = 1                  # Manufactured solution flag: = 1 for manuf. sol., = 0
 isgs = 0                  # Symmetric Gauss-Seidel  flag: = 1 for SGS, = 0 for point Jacobi
 # Restart flag: = 1 for restart (file 'restart.in', = 0 for initial run
 irstr = 1
-# Order of pressure gradient: 0 = twond, 1 = 3rd (not needed)
+# Order of pressure gradient: 0 = 2nd, 1 = 3rd (not needed)
 ipgorder = 0
 # variable to be used as the limiter sensor (= 0 for pressure)
 lim = 0
@@ -81,7 +81,7 @@ Cy = 0.01               # Parameter for 4th order artificial viscosity in y
 toler = 1.e-10          # Tolerance for iterative residual convergence
 rkappa = 0.1            # Time derivative preconditioning constant
 Re = 100.0              # Reynolds number = rho*Uinf*L/rmu
-# Initial pressure (N/m^two) -> from MMS value at cavity center
+# Initial pressure (N/m^2) -> from MMS value at cavity center
 pinf = 0.801333844662
 uinf = 1.0              # Lid velocity (m/s)
 rho = 1.0               # Density (kg/m^3)
@@ -89,16 +89,16 @@ xmin = 0.0              # Cavity dimensions...: minimum x location (m)
 xmax = 0.05             # maximum x location (m)
 ymin = 0.0              # maximum y location (m)
 ymax = 0.05             # maximum y location (m)
-Cxtwo = 0.0               # Coefficient for twond order damping (not required)
-Cytwo = 0.0               # Coefficient for twond order damping (not required)
+Cx2 = 0.0               # Coefficient for 2nd order damping (not required)
+Cy2 = 0.0               # Coefficient for 2nd order damping (not required)
 fsmall = 1e-20          # small parameter
 
 # -- Derived input quantities (set by function 'set_derived_inputs' called from main)----
 
 rhoinv = -99.9 	# Inverse density, 1/rho (m^3/kg)
 rlength = -99.9 	# Characteristic length (m) [cavity width]
-rmu = -99.9  		# Viscosity (N*s/m^two)
-veltworef = -99.9  	# Reference velocity squared (m^two/s^two)
+rmu = -99.9  		# Viscosity (N*s/m^2)
+vel2ref = -99.9  	# Reference velocity squared (m^2/s^2)
 dx = -99.9 		# Delta x (m)
 dy = -99.9  		# Delta y (m)
 rpi = -99.9 		# Pi = 3.14159... (defined below)
@@ -130,15 +130,15 @@ def set_derived_inputs():
     global imax, jmax
     global one
     global Re, uinf, rho, rhoinv, xmin, xmax, ymin, ymax
-    global rlength, rmu, veltworef, dx, dy, rpi
+    global rlength, rmu, vel2ref, dx, dy, rpi
 
     # Inverse density, 1/rho (m^3/kg)
     rhoinv = one/rho
     # Characteristic length (m) [cavity width]
     rlength = xmax - xmin
-    rmu = rho*uinf*rlength/Re                   # Viscosity (N*s/m^two) */
-    # Reference velocity squared (m^two/s^two)
-    veltworef = uinf*uinf
+    rmu = rho*uinf*rlength/Re                   # Viscosity (N*s/m^2) */
+    # Reference velocity squared (m^2/s^2)
+    vel2ref = uinf*uinf
     dx = (xmax - xmin)/(imax - 1)          # Delta x (m)
     dy = (ymax - ymin)/(jmax - 1)          # Delta y (m)
     rpi = math.acos(-one)                            # Pi = 3.14159...
@@ -150,33 +150,33 @@ def set_derived_inputs():
 
 def output_file_headers():
 
-    # Uses global variable(s): imms, fp1, fptwo
+    # Uses global variable(s): imms, fp1, fp2
     # Note: The vector of primitive variables is:
     #               u = [p, u, v]^T
     # Set up output files (history and solution)
 
-    global imms, fp1, fptwo
+    global imms, fp1, fp2
 
     fp1 = open("history.dat", "w")
     fp1.write("TITLE = 'Cavity Iterative Residual History'\n")
-    fp1.write("variables='Iteration''Time(s)''Res1''Restwo''Res3'\n")
+    fp1.write("variables='Iteration''Time(s)''Res1''Res2''Res3'\n")
 
-    fptwo = open("cavity.dat", "w")
-    fptwo.write("TITLE = 'Cavity Field Data'\n")
+    fp2 = open("cavity.dat", "w")
+    fp2.write("TITLE = 'Cavity Field Data'\n")
     if imms == 1:
 
-        fptwo.write("variables='x(m)''y(m)''p(N/m^two)''u(m/s)''v(m/s)'")
-        fptwo.write("'p-exact''u-exact''v-exact''DE-p''DE-u''DE-v'\n")
+        fp2.write("variables='x(m)''y(m)''p(N/m^2)''u(m/s)''v(m/s)'")
+        fp2.write("'p-exact''u-exact''v-exact''DE-p''DE-u''DE-v'\n")
 
     else:
 
         if imms == 0:
 
-            fptwo.write("variables='x(m)''y(m)''p(N/m^two)''u(m/s)''v(m/s)\n")
+            fp2.write("variables='x(m)''y(m)''p(N/m^2)''u(m/s)''v(m/s)\n")
 
         else:
 
-            fptwo.write("ERROR! imms must equal 0 or 1!!!\n")
+            fp2.write("ERROR! imms must equal 0 or 1!!!\n")
 
     # Header for Screen Output
     print("Iter. Time (s)   dt (s)      Continuity    x-Momentum    y-Momentum\n")
@@ -210,7 +210,7 @@ def initial(ninit, rtime, resinit):
 
         u[:, :, 0] = pinf*np.ones((imax, jmax))
         u[:, :, 1] = np.zeros((imax, jmax))
-        u[:, :, two] = np.zeros((imax, jmax))
+        u[:, :, 2] = np.zeros((imax, jmax))
         s = np.zeros_like(u)
 
         # Initialize lid (top) to freestream velocity
@@ -233,17 +233,17 @@ def initial(ninit, rtime, resinit):
             # Need to known current iteration # and time value (first line)
             ninit, rtime = [float(x) for x in lines_list[0].split()]
             # Needs initial iterative residuals for scaling (second line)
-            resinit[0], resinit[1], resinit[two] = [
+            resinit[0], resinit[1], resinit[2] = [
                 float(x) for x in lines_list[1].split()]
             list = [[float(x) for x in line.split()]
-                    for line in lines_list[two:]]
+                    for line in lines_list[2:]]
 
         array = np.array(list)
-        uproc = array[:, two:5]
+        uproc = array[:, 2:5]
         for j in np.arange(0, jmax-1, 1):
             u[0:imax, j, 0] = uproc[j*imax:(j+1)*imax, 0]
             u[0:imax, j, 1] = uproc[j*imax:(j+1)*imax, 1]
-            u[0:imax, j, two] = uproc[j*imax:(j+1)*imax, two]
+            u[0:imax, j, 2] = uproc[j*imax:(j+1)*imax, 2]
 
         ninit = ninit + 1
         print("Restarting at iteration "+str(ninit)+"\n")
@@ -287,7 +287,7 @@ def set_boundary_conditions():
 
 def bndry():
     #
-    # Uses global variable(s): zero, one, two, half, imax, jmax, uinf
+    # Uses global variable(s): zero, one, 2, half, imax, jmax, uinf
     # To modify: u
 
     # i                        # i index (x direction)
@@ -303,25 +303,25 @@ def bndry():
     u[0, 1:-1, 1:3] = zero
     u[-1, 1:-1, 1:3] = zero
 
-    # Extrapolating sidewall pressure from the two nearest interior nodes
-    u[0, 1:-1, 0] = two * u[1, 1:-1, 0] - u[two, 1:-1, 0]
-    u[-1, 1:-1, 0] = two * u[-two, 1:-1, 0] - u[-3, 1:-1, 0]
+    # Extrapolating sidewall pressure from the 2 nearest interior nodes
+    u[0, 1:-1, 0] = 2 * u[1, 1:-1, 0] - u[2, 1:-1, 0]
+    u[-1, 1:-1, 0] = 2 * u[-2, 1:-1, 0] - u[-3, 1:-1, 0]
 
     # Bottom wall, including corners
     u[:, 0, 1:3] = zero
-    u[:, 0, 0] = two * u[:, 1, 0] - u[:, two, 0]
+    u[:, 0, 0] = 2 * u[:, 1, 0] - u[:, 2, 0]
 
     # Top lid, including corners
     u[:, -1, 1] = uinf
-    u[:, -1, two] = zero
-    u[:, -1, 0] = two * u[:, -two, 0] - u[:, -3, 0]
+    u[:, -1, 2] = zero
+    u[:, -1, 0] = 2 * u[:, -2, 0] - u[:, -3, 0]
 
 # ************************************************************************
 
 
 def bndrymms():
     #
-    # Uses global variable(s): two, imax, jmax, neq, xmax, xmin, ymax, ymin, rlength
+    # Uses global variable(s): 2, imax, jmax, neq, xmax, xmin, ymax, ymin, rlength
     # To modify: u
     # i                        # i index (x direction)
     # j                        # j index (y direction)
@@ -336,21 +336,21 @@ def bndrymms():
     # Side Walls
     # Left Wall
     u[0, 1:jmax-1, 0:neq] = copy.deepcopy(ummsArray[0, 1:jmax-1, 0:neq])
-    u[0, 1:jmax-1, 0] = two*u[1, 1:jmax-1, 0]-u[two, 1:jmax-1, 0]  # twond Order BC
+    u[0, 1:jmax-1, 0] = 2*u[1, 1:jmax-1, 0]-u[2, 1:jmax-1, 0]  # 2nd Order BC
     # Right Wall
     u[imax-1, 1:jmax-1,
         0:neq] = copy.deepcopy(ummsArray[imax-1, 1:jmax-1, 0:neq])
-    u[imax-1, 1:jmax-1, 0] = two*u[imax-two, 1:jmax-1, 0] - \
-        u[imax-3, 1:jmax-1, 0]  # twond Order BC
+    u[imax-1, 1:jmax-1, 0] = 2*u[imax-2, 1:jmax-1, 0] - \
+        u[imax-3, 1:jmax-1, 0]  # 2nd Order BC
 
     # Top/Bottom Walls
     # Bottom Wall
     u[0:imax, 0, 0:neq] = copy.deepcopy(ummsArray[0:imax, 0, 0:neq])
-    u[0:imax, 0, 0] = two*u[0:imax, 1, 0] - u[0:imax, two, 0]  # twond Order BC
+    u[0:imax, 0, 0] = 2*u[0:imax, 1, 0] - u[0:imax, 2, 0]  # 2nd Order BC
     # Top Wall
     u[0:imax, jmax-1, 0:neq] = copy.deepcopy(ummsArray[0:imax, jmax-1, 0:neq])
-    u[0:imax, jmax-1, 0] = two*u[0:imax, jmax-two, 0] - \
-        u[0:imax, jmax-3, 0]  # twond Order BC
+    u[0:imax, jmax-1, 0] = 2*u[0:imax, jmax-2, 0] - \
+        u[0:imax, jmax-3, 0]  # 2nd Order BC
 
 # ************************************************************************
 
@@ -407,28 +407,28 @@ def write_output(n, resinit, rtime):
 
     global imax, jmax, xmax, xmin, ymax, ymin, imms
     global u, ummsArray
-    global fptwo, fp3
+    global fp2, fp3
 
     # Field output
-    fptwo.write("zone T='n="+str(n)+" ' "+"\n")
-    fptwo.write("I= "+str(imax)+" J= "+str(jmax)+"\n")
-    fptwo.write("DATAPACKING=POINT\n")
+    fp2.write("zone T='n="+str(n)+" ' "+"\n")
+    fp2.write("I= "+str(imax)+" J= "+str(jmax)+"\n")
+    fp2.write("DATAPACKING=POINT\n")
 
     if imms == 1:
         for i in np.arange(0, imax, 1):
             for j in np.arange(0, jmax, 1):
                 x = (xmax - xmin)*i/(imax - 1)
                 y = (ymax - ymin)*j/(jmax - 1)
-                fptwo.write(str(x)+" "+str(y)+" "+str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, two])+" "+str(ummsArray[i, j, 0])+" "+str(ummsArray[i, j, 1])+" "+str(ummsArray[i, j, two])+" " +
-                          str((u[i, j, 0]-ummsArray[i, j, 0]))+" "+str((u[i, j, 1]-ummsArray[i, j, 1]))+" "+str((u[i, j, two]-ummsArray[i, j, two]))+"\n")
+                fp2.write(str(x)+" "+str(y)+" "+str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, 2])+" "+str(ummsArray[i, j, 0])+" "+str(ummsArray[i, j, 1])+" "+str(ummsArray[i, j, 2])+" " +
+                          str((u[i, j, 0]-ummsArray[i, j, 0]))+" "+str((u[i, j, 1]-ummsArray[i, j, 1]))+" "+str((u[i, j, 2]-ummsArray[i, j, 2]))+"\n")
     else:
         if imms == 0:
             for j in np.arange(0, jmax, 1):
                 for i in np.arange(0, imax, 1):
                     x = (xmax - xmin)*i/(imax - 1)
                     y = (ymax - ymin)*j/(jmax - 1)
-                    fptwo.write(str(
-                        x)+" "+str(y)+" "+str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, two])+"\n")
+                    fp2.write(str(
+                        x)+" "+str(y)+" "+str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, 2])+"\n")
         else:
             print("ERROR: imms must equal 0 or 1!\n")
             return
@@ -436,13 +436,13 @@ def write_output(n, resinit, rtime):
     # Restart file: overwrites every 'iterout' iteration
     fp3 = open("restart.out", 'w')
     fp3.write(str(n)+" "+str(rtime)+"\n")
-    fp3.write(str(resinit[0])+" "+str(resinit[1])+" "+str(resinit[two])+"\n")
+    fp3.write(str(resinit[0])+" "+str(resinit[1])+" "+str(resinit[2])+"\n")
     for j in np.arange(0, jmax, 1):
         for i in np.arange(0, imax, 1):
             x = (xmax - xmin)*(i)/(imax-1 - 1)
             y = (ymax - ymin)*(j)/(jmax-1 - 1)
             fp3.write(str(x)+" "+str(y)+" " +
-                      str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, two])+"\n")
+                      str(u[i, j, 0])+" "+str(u[i, j, 1])+" "+str(u[i, j, 2])+"\n")
     fp3.close()
 # ************************************************************************
 
@@ -469,7 +469,7 @@ def compute_source_terms():
             y = (ymax - ymin)*(j)/(jmax - 1)
             s[i, j, 0] = (imms)*srcmms_mass(x, y)
             s[i, j, 1] = (imms)*srcmms_xmtm(x, y)
-            s[i, j, two] = (imms)*srcmms_ymtm(x, y)
+            s[i, j, 2] = (imms)*srcmms_ymtm(x, y)
 
 # ************************************************************************
 
@@ -493,8 +493,8 @@ def srcmms_mass(x, y):
     dudx = phix[1]*apx[1]*rpi/rlength*math.cos(apx[1]*rpi*x/rlength) + phixy[1] * \
         apxy[1]*rpi*y/rlength/rlength*math.cos(apxy[1]*rpi*x*y/rlength/rlength)
 
-    dvdy = -phiy[two]*apy[two]*rpi/rlength*math.sin(apy[two]*rpi*y/rlength) - phixy[two] * \
-        apxy[two]*rpi*x/rlength/rlength*math.sin(apxy[two]*rpi*x*y/rlength/rlength)
+    dvdy = -phiy[2]*apy[2]*rpi/rlength*math.sin(apy[2]*rpi*y/rlength) - phixy[2] * \
+        apxy[2]*rpi*x/rlength/rlength*math.sin(apxy[2]*rpi*x*y/rlength/rlength)
 
     srcmasstmp = rho*dudx + rho*dvdy
 
@@ -519,8 +519,8 @@ def srcmms_xmtm(x, y):
     # uvel;         # Temp variable: u velocity
     # vvel;         # Temp variable: v velocity
     # dpdx;         # Temp variable: pressure gradient in x direction
-    # dtwoudxtwo;       # Temp variable: twond derivative of u velocity in x direction
-    # dtwoudytwo;       # Temp variable: twond derivative of u velocity in y direction
+    # d2udx2;       # Temp variable: 2nd derivative of u velocity in x direction
+    # d2udy2;       # Temp variable: 2nd derivative of u velocity in y direction
 
     # This function returns the MMS x-momentum source term
 
@@ -532,10 +532,10 @@ def srcmms_xmtm(x, y):
     termxy = phixy[1]*math.sin(apxy[1]*rpi*x*y/rlength/rlength)
     uvel = phi0[1] + termx + termy + termxy
 
-    termx = phix[two]*math.cos(apx[two]*rpi*x/rlength)
-    termy = phiy[two]*math.cos(apy[two]*rpi*y/rlength)
-    termxy = phixy[two]*math.cos(apxy[two]*rpi*x*y/rlength/rlength)
-    vvel = phi0[two] + termx + termy + termxy
+    termx = phix[2]*math.cos(apx[2]*rpi*x/rlength)
+    termy = phiy[2]*math.cos(apy[2]*rpi*y/rlength)
+    termxy = phixy[2]*math.cos(apxy[2]*rpi*x*y/rlength/rlength)
+    vvel = phi0[2] + termx + termy + termxy
 
     dudx = phix[1]*apx[1]*rpi/rlength*math.cos(apx[1]*rpi*x/rlength) + phixy[1] * \
         apxy[1]*rpi*y/rlength/rlength*math.cos(apxy[1]*rpi*x*y/rlength/rlength)
@@ -548,15 +548,15 @@ def srcmms_xmtm(x, y):
         apxy[0]*rpi*y/rlength/rlength * \
         math.cos(apxy[0]*rpi*x*y/rlength/rlength)
 
-    dtwoudxtwo = -phix[1]*np.square(apx[1]*rpi/rlength) * math.sin(apx[1]*rpi*x/rlength) - phixy[1] * \
+    d2udx2 = -phix[1]*np.square(apx[1]*rpi/rlength) * math.sin(apx[1]*rpi*x/rlength) - phixy[1] * \
         np.square(apxy[1]*rpi*y/rlength/rlength) * \
         math.sin(apxy[1]*rpi*x*y/rlength/rlength)
 
-    dtwoudytwo = -phiy[1]*np.square(apy[1]*rpi/rlength) * math.cos(apy[1]*rpi*y/rlength) - phixy[1] * \
+    d2udy2 = -phiy[1]*np.square(apy[1]*rpi/rlength) * math.cos(apy[1]*rpi*y/rlength) - phixy[1] * \
         np.square(apxy[1]*rpi*x/rlength/rlength) * \
         math.sin(apxy[1]*rpi*x*y/rlength/rlength)
 
-    srcxmtmtmp = rho*uvel*dudx + rho*vvel*dudy + dpdx - rmu*(dtwoudxtwo + dtwoudytwo)
+    srcxmtmtmp = rho*uvel*dudx + rho*vvel*dudy + dpdx - rmu*(d2udx2 + d2udy2)
 
     return srcxmtmtmp
 # ************************************************************************
@@ -579,8 +579,8 @@ def srcmms_ymtm(x, y):
     # uvel;         # Temp variable: u velocity
     # vvel;         # Temp variable: v velocity
     # dpdy;         # Temp variable: pressure gradient in y direction
-    # dtwovdxtwo;       # Temp variable: twond derivative of v velocity in x direction
-    # dtwovdytwo;       # Temp variable: twond derivative of v velocity in y direction
+    # d2vdx2;       # Temp variable: 2nd derivative of v velocity in x direction
+    # d2vdy2;       # Temp variable: 2nd derivative of v velocity in y direction
 
     # This function returns the MMS y-momentum source term
 
@@ -592,32 +592,32 @@ def srcmms_ymtm(x, y):
     termxy = phixy[1]*math.sin(apxy[1]*rpi*x*y/rlength/rlength)
     uvel = phi0[1] + termx + termy + termxy
 
-    termx = phix[two]*math.cos(apx[two]*rpi*x/rlength)
-    termy = phiy[two]*math.cos(apy[two]*rpi*y/rlength)
-    termxy = phixy[two]*math.cos(apxy[two]*rpi*x*y/rlength/rlength)
-    vvel = phi0[two] + termx + termy + termxy
+    termx = phix[2]*math.cos(apx[2]*rpi*x/rlength)
+    termy = phiy[2]*math.cos(apy[2]*rpi*y/rlength)
+    termxy = phixy[2]*math.cos(apxy[2]*rpi*x*y/rlength/rlength)
+    vvel = phi0[2] + termx + termy + termxy
 
-    dvdx = -phix[two]*apx[two]*rpi/rlength*math.sin(apx[two]*rpi*x/rlength) - phixy[two] * \
-        apxy[two]*rpi*y/rlength/rlength * \
-        math.sin(apxy[two]*rpi*x*y/rlength/rlength)
+    dvdx = -phix[2]*apx[2]*rpi/rlength*math.sin(apx[2]*rpi*x/rlength) - phixy[2] * \
+        apxy[2]*rpi*y/rlength/rlength * \
+        math.sin(apxy[2]*rpi*x*y/rlength/rlength)
 
-    dvdy = -phiy[two]*apy[two]*rpi/rlength*math.sin(apy[two]*rpi*y/rlength) - phixy[two] * \
-        apxy[two]*rpi*x/rlength/rlength * \
-        math.sin(apxy[two]*rpi*x*y/rlength/rlength)
+    dvdy = -phiy[2]*apy[2]*rpi/rlength*math.sin(apy[2]*rpi*y/rlength) - phixy[2] * \
+        apxy[2]*rpi*x/rlength/rlength * \
+        math.sin(apxy[2]*rpi*x*y/rlength/rlength)
 
     dpdy = phiy[0]*apy[0]*rpi/rlength*math.cos(apy[0]*rpi*y/rlength) + phixy[0] * \
         apxy[0]*rpi*x/rlength/rlength * \
         math.cos(apxy[0]*rpi*x*y/rlength/rlength)
 
-    dtwovdxtwo = -phix[two]*np.square(apx[two]*rpi/rlength) * math.cos(apx[two]*rpi*x/rlength) - phixy[two] * \
-        np.square(apxy[two]*rpi*y/rlength/rlength) * \
-        math.cos(apxy[two]*rpi*x*y/rlength/rlength)
+    d2vdx2 = -phix[2]*np.square(apx[2]*rpi/rlength) * math.cos(apx[2]*rpi*x/rlength) - phixy[2] * \
+        np.square(apxy[2]*rpi*y/rlength/rlength) * \
+        math.cos(apxy[2]*rpi*x*y/rlength/rlength)
 
-    dtwovdytwo = -phiy[two]*np.square(apy[two]*rpi/rlength) * math.cos(apy[two]*rpi*y/rlength) - phixy[two] * \
-        np.square(apxy[two]*rpi*x/rlength/rlength) * \
-        math.cos(apxy[two]*rpi*x*y/rlength/rlength)
+    d2vdy2 = -phiy[2]*np.square(apy[2]*rpi/rlength) * math.cos(apy[2]*rpi*y/rlength) - phixy[2] * \
+        np.square(apxy[2]*rpi*x/rlength/rlength) * \
+        math.cos(apxy[2]*rpi*x*y/rlength/rlength)
 
-    srcymtmtmp = rho*uvel*dvdx + rho*vvel*dvdy + dpdy - rmu*(dtwovdxtwo + dtwovdytwo)
+    srcymtmtmp = rho*uvel*dvdx + rho*vvel*dvdy + dpdy - rmu*(d2vdx2 + d2vdy2)
 
     return srcymtmtmp
 # ************************************************************************
@@ -625,8 +625,8 @@ def srcmms_ymtm(x, y):
 
 def compute_time_step(dtmin):
 
-    # Uses global variable(s): one, two, four, half, fourth
-    # Uses global variable(s): veltworef, rmu, rho, dx, dy, cfl, rkappa, imax, jmax
+    # Uses global variable(s): one, 2, four, half, fourth
+    # Uses global variable(s): vel2ref, rmu, rho, dx, dy, cfl, rkappa, imax, jmax
     #Uses: u
     # To Modify: dt, dtmin
 
@@ -634,20 +634,20 @@ def compute_time_step(dtmin):
     # j                        # j index (y direction)
 
     # dtvisc       # Viscous time step stability criteria (constant over domain)
-    # uveltwo        # Local velocity squared
-    # betatwo        # Beta squared paramete for time derivative preconditioning
+    # uvel2        # Local velocity squared
+    # beta2        # Beta squared paramete for time derivative preconditioning
     # lambda_x     # Max absolute value eigenvalue in (x,t)
     # lambda_y     # Max absolute value eigenvalue in (y,t)
     # lambda_max   # Max absolute value eigenvalue (used in convective time step computation)
     # dtconv       # Local convective time step restriction
 
     global four, half, fourth
-    global veltworef, rmu, rho, dx, dy, cfl, rkappa, imax, jmax
+    global vel2ref, rmu, rho, dx, dy, cfl, rkappa, imax, jmax
     global u, dt
 
-        # Viscous time-step limit for explicit diffusion on a uniform twoD grid
+        # Viscous time-step limit for explicit diffusion on a uniform 2D grid
     nu = rmu / rho
-    dtvisc = one / (two * nu * (one / dx**two + one / dy**two))
+    dtvisc = one / (2 * nu * (one / dx**2 + one / dy**2))
 
     # Find the smallest local step for this iteration
     dtmin = float("inf")
@@ -655,13 +655,13 @@ def compute_time_step(dtmin):
     for i in range(1, imax - 1):
         for j in range(1, jmax - 1):
             u_vel = u[i, j, 1]
-            v_vel = u[i, j, two]
+            v_vel = u[i, j, 2]
 
-            uveltwo = u_vel**two + v_vel**two
-            betatwo = max(uveltwo, rkappa * veltworef)
+            uvel2 = u_vel**2 + v_vel**2
+            beta2 = max(uvel2, rkappa * vel2ref)
 
-            lambda_x = half * (abs(u_vel) + math.sqrt(u_vel**two + four * betatwo))
-            lambda_y = half * (abs(v_vel) + math.sqrt(v_vel**two + four * betatwo))
+            lambda_x = half * (abs(u_vel) + math.sqrt(u_vel**2 + four * beta2))
+            lambda_y = half * (abs(v_vel) + math.sqrt(v_vel**2 + four * beta2))
             lambda_max = max(lambda_x, lambda_y)
 
             # Square grid: dx and dy are equal
@@ -676,29 +676,29 @@ def compute_time_step(dtmin):
 
 def Compute_Artificial_Viscosity():
 
-    # Uses global variable(s): zero, one, two, four, six, half, fourth
-    # Uses global variable(s): imax, jmax, lim, rho, dx, dy, Cx, Cy, Cxtwo, Cytwo, fsmall, veltworef, rkappa
+    # Uses global variable(s): zero, one, 2, four, six, half, fourth
+    # Uses global variable(s): imax, jmax, lim, rho, dx, dy, Cx, Cy, Cx2, Cy2, fsmall, vel2ref, rkappa
     # Uses: u
     # To Modify: artviscx, artviscy
 
     # i                        # i index (x direction)
     # j                        # j index (y direction)
 
-    # uveltwo        # Local velocity squared
-    # betatwo        # Beta squared paramete for time derivative preconditioning
+    # uvel2        # Local velocity squared
+    # beta2        # Beta squared paramete for time derivative preconditioning
     # lambda_x     # Max absolute value e-value in (x,t)
     # lambda_y     # Max absolute value e-value in (y,t)
     # d4pdx4       # 4th derivative of pressure w.r.t. x
     # d4pdy4       # 4th derivative of pressure w.r.t. y
-    # # dtwopdxtwo       # twond derivative of pressure w.r.t. x [these are not used]
-    # # dtwopdytwo       # twond derivative of pressure w.r.t. y [these are not used]
-    # # pfunct1      # Temporary variable for twond derivative damping [these are
+    # # d2pdx2       # 2nd derivative of pressure w.r.t. x [these are not used]
+    # # d2pdy2       # 2nd derivative of pressure w.r.t. y [these are not used]
+    # # pfunct1      # Temporary variable for 2nd derivative damping [these are
     # not used]
-    # # pfuncttwo      # Temporary variable for twond derivative damping [these are
+    # # pfunct2      # Temporary variable for 2nd derivative damping [these are
     # not used]
 
     global two, four, six, half
-    global imax, jmax, lim, rho, dx, dy, Cx, Cy, Cxtwo, Cytwo, fsmall, veltworef, rkappa
+    global imax, jmax, lim, rho, dx, dy, Cx, Cy, Cx2, Cy2, fsmall, vel2ref, rkappa
     global u
     global artviscx, artviscy
 
@@ -706,50 +706,50 @@ def Compute_Artificial_Viscosity():
     p = u[:, :, 0]  # Pressure field
 
     for i in range(1, imax - 1):
-        # Centering the x-stencil where two neighbors exist on each side.
+        # Centering the x-stencil where 2 neighbors exist on each side.
         ic = i
         if i == 1:
-            ic = two
-        elif i == imax - two:
+            ic = 2
+        elif i == imax - 2:
             ic = imax - 3
 
         for j in range(1, jmax - 1):
-            # Centering the y-stencil where two neighbors exist on each side.
+            # Centering the y-stencil where 2 neighbors exist on each side.
             jc = j
             if j == 1:
-                jc = two
-            elif j == jmax - two:
+                jc = 2
+            elif j == jmax - 2:
                 jc = jmax - 3
 
             # velocity at the node receiving the damping.
             u_vel = u[i, j, 1]
-            v_vel = u[i, j, two]
-            uveltwo = u_vel**two + v_vel**two
-            betatwo = max(uveltwo, rkappa * veltworef)
+            v_vel = u[i, j, 2]
+            uvel2 = u_vel**2 + v_vel**2
+            beta2 = max(uvel2, rkappa * vel2ref)
 
-            lambda_x = 0.5 * (abs(u_vel) + math.sqrt(u_vel**two + 4.0 * betatwo))
-            lambda_y = 0.5 * (abs(v_vel) + math.sqrt(v_vel**two + 4.0 * betatwo))
+            lambda_x = 0.5 * (abs(u_vel) + math.sqrt(u_vel**2 + 4.0 * beta2))
+            lambda_y = 0.5 * (abs(v_vel) + math.sqrt(v_vel**2 + 4.0 * beta2))
 
             # x derivative
             d4pdx4 = (
-                p[ic - two, j]
+                p[ic - 2, j]
                 - 4.0 * p[ic - 1, j]
                 + 6.0 * p[ic, j]
                 - 4.0 * p[ic + 1, j]
-                + p[ic + two, j]
+                + p[ic + 2, j]
             ) / dx**4
 
             # y derivative
             d4pdy4 = (
-                p[i, jc - two]
+                p[i, jc - 2]
                 - 4.0 * p[i, jc - 1]
                 + 6.0 * p[i, jc]
                 - 4.0 * p[i, jc + 1]
-                + p[i, jc + two]
+                + p[i, jc + 2]
             ) / dy**4
 
-            artviscx[i, j] = -(lambda_x * Cx * dx**3 / betatwo) * d4pdx4
-            artviscy[i, j] = -(lambda_y * Cy * dy**3 / betatwo) * d4pdy4
+            artviscx[i, j] = -(lambda_x * Cx * dx**3 / beta2) * d4pdx4
+            artviscy[i, j] = -(lambda_y * Cy * dy**3 / beta2) * d4pdy4
     # !************************************************************** */
 
 # ************************************************************************
@@ -757,9 +757,9 @@ def Compute_Artificial_Viscosity():
 
 def SGS_forward_sweep():
 
-    # Uses global variable(s): two, three, six, half
+    # Uses global variable(s): 2, three, six, half
     # Uses global variable(s): imax, imax, jmax, ipgorder, rho, rhoinv, dx, dy, rkappa, ...
-    #                      xmax, xmin, ymax, ymin, rmu, veltworef
+    #                      xmax, xmin, ymax, ymin, rmu, vel2ref
     # Uses: artviscx, artviscy, dt, s
     # To Modify: u
 
@@ -772,15 +772,15 @@ def SGS_forward_sweep():
     # dpdy         # First derivative of pressure w.r.t. y
     # dudy         # First derivative of x velocity w.r.t. y
     # dvdy         # First derivative of y velocity w.r.t. y
-    # dtwoudxtwo       # Second derivative of x velocity w.r.t. x
-    # dtwovdxtwo       # Second derivative of y velocity w.r.t. x
-    # dtwoudytwo       # Second derivative of x velocity w.r.t. y
-    # dtwovdytwo       # Second derivative of y velocity w.r.t. y
-    # betatwo        # Beta squared parameter for time derivative preconditioning
-    # uveltwo        # Velocity squared
+    # d2udx2       # Second derivative of x velocity w.r.t. x
+    # d2vdx2       # Second derivative of y velocity w.r.t. x
+    # d2udy2       # Second derivative of x velocity w.r.t. y
+    # d2vdy2       # Second derivative of y velocity w.r.t. y
+    # beta2        # Beta squared parameter for time derivative preconditioning
+    # uvel2        # Velocity squared
 
     global two, half
-    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, veltworef
+    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, vel2ref
     global artviscx, artviscy, dt, s, u
 
     # Symmetric Gauss-Siedel: Forward Sweep
@@ -795,9 +795,9 @@ def SGS_forward_sweep():
 
 def SGS_backward_sweep():
 
-    # Uses global variable(s): two, three, six, half
+    # Uses global variable(s): 2, three, six, half
     # Uses global variable(s): imax, imax, jmax, ipgorder, rho, rhoinv, dx, dy, rkappa, ...
-    #                      xmax, xmin, ymax, ymin, rmu, veltworef
+    #                      xmax, xmin, ymax, ymin, rmu, vel2ref
     # Uses: artviscx, artviscy, dt, s
     # To Modify: u
 
@@ -810,15 +810,15 @@ def SGS_backward_sweep():
     # dpdy         # First derivative of pressure w.r.t. y
     # dudy         # First derivative of x velocity w.r.t. y
     # dvdy         # First derivative of y velocity w.r.t. y
-    # dtwoudxtwo       # Second derivative of x velocity w.r.t. x
-    # dtwovdxtwo       # Second derivative of y velocity w.r.t. x
-    # dtwoudytwo       # Second derivative of x velocity w.r.t. y
-    # dtwovdytwo       # Second derivative of y velocity w.r.t. y
-    # betatwo        # Beta squared parameter for time derivative preconditioning
-    # uveltwo        # Velocity squared
+    # d2udx2       # Second derivative of x velocity w.r.t. x
+    # d2vdx2       # Second derivative of y velocity w.r.t. x
+    # d2udy2       # Second derivative of x velocity w.r.t. y
+    # d2vdy2       # Second derivative of y velocity w.r.t. y
+    # beta2        # Beta squared parameter for time derivative preconditioning
+    # uvel2        # Velocity squared
 
     global two, half
-    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, veltworef
+    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, vel2ref
     global artviscx, artviscy, dt, s, u
 
     # Symmetric Gauss-Siedel: Backward Sweep
@@ -832,9 +832,9 @@ def SGS_backward_sweep():
 
 def point_Jacobi():
 
-    # Uses global variable(s): two, three, six, half
+    # Uses global variable(s): 2, three, six, half
     # Uses global variable(s): imax, imax, jmax, ipgorder, rho, rhoinv, dx, dy, rkappa, ...
-    #                      xmax, xmin, ymax, ymin, rmu, veltworef
+    #                      xmax, xmin, ymax, ymin, rmu, vel2ref
     # Uses: uold, artviscx, artviscy, dt, s
     # To Modify: u
 
@@ -847,53 +847,53 @@ def point_Jacobi():
     # dpdy         # First derivative of pressure w.r.t. y
     # dudy         # First derivative of x velocity w.r.t. y
     # dvdy         # First derivative of y velocity w.r.t. y
-    # dtwoudxtwo       # Second derivative of x velocity w.r.t. x
-    # dtwovdxtwo       # Second derivative of y velocity w.r.t. x
-    # dtwoudytwo       # Second derivative of x velocity w.r.t. y
-    # dtwovdytwo       # Second derivative of y velocity w.r.t. y
-    # betatwo        # Beta squared parameter for time derivative preconditioning
-    # uveltwo        # Velocity squared
+    # d2udx2       # Second derivative of x velocity w.r.t. x
+    # d2vdx2       # Second derivative of y velocity w.r.t. x
+    # d2udy2       # Second derivative of x velocity w.r.t. y
+    # d2vdy2       # Second derivative of y velocity w.r.t. y
+    # beta2        # Beta squared parameter for time derivative preconditioning
+    # uvel2        # Velocity squared
     global two, half
-    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, veltworef
+    global imax, jmax, rho, rhoinv, dx, dy, rkappa, rmu, vel2ref
     global u, uold, artviscx, artviscy, dt, s
 
     # Point Jacobi method
 
     p_old = uold[:, :, 0]
     u_old = uold[:, :, 1]
-    v_old = uold[:, :, two]
+    v_old = uold[:, :, 2]
     nu = rmu / rho
 
     for i in range(1, imax - 1):
         for j in range(1, jmax - 1):
             u_vel = u_old[i, j]
             v_vel = v_old[i, j]
-            betatwo = max(u_vel**two + v_vel**two, rkappa * veltworef)
+            beta2 = max(u_vel**2 + v_vel**2, rkappa * vel2ref)
             step = dt[i, j]
 
             # Pressure gradients
-            dpdx = (p_old[i + 1, j] - p_old[i - 1, j]) / (two * dx)
-            dpdy = (p_old[i, j + 1] - p_old[i, j - 1]) / (two * dy)
+            dpdx = (p_old[i + 1, j] - p_old[i - 1, j]) / (2 * dx)
+            dpdy = (p_old[i, j + 1] - p_old[i, j - 1]) / (2 * dy)
 
             # Velocity gradients
-            dudx = (u_old[i + 1, j] - u_old[i - 1, j]) / (two * dx)
-            dudy = (u_old[i, j + 1] - u_old[i, j - 1]) / (two * dy)
-            dvdx = (v_old[i + 1, j] - v_old[i - 1, j]) / (two * dx)
-            dvdy = (v_old[i, j + 1] - v_old[i, j - 1]) / (two * dy)
+            dudx = (u_old[i + 1, j] - u_old[i - 1, j]) / (2 * dx)
+            dudy = (u_old[i, j + 1] - u_old[i, j - 1]) / (2 * dy)
+            dvdx = (v_old[i + 1, j] - v_old[i - 1, j]) / (2 * dx)
+            dvdy = (v_old[i, j + 1] - v_old[i, j - 1]) / (2 * dy)
 
             # Velocity Laplacians for viscous diffusion
             lap_u = (
-                (u_old[i + 1, j] - two * u_vel + u_old[i - 1, j]) / dx**two
-                + (u_old[i, j + 1] - two * u_vel + u_old[i, j - 1]) / dy**two
+                (u_old[i + 1, j] - 2 * u_vel + u_old[i - 1, j]) / dx**2
+                + (u_old[i, j + 1] - 2 * u_vel + u_old[i, j - 1]) / dy**2
             )
             lap_v = (
-                (v_old[i + 1, j] - two * v_vel + v_old[i - 1, j]) / dx**two
-                + (v_old[i, j + 1] - two * v_vel + v_old[i, j - 1]) / dy**two
+                (v_old[i + 1, j] - 2 * v_vel + v_old[i - 1, j]) / dx**2
+                + (v_old[i, j + 1] - 2 * v_vel + v_old[i, j - 1]) / dy**2
             )
 
             # Pressure updated using the signed artificial-viscosity terms
             damping = artviscx[i, j] + artviscy[i, j]
-            dp_dtau = betatwo * (s[i, j, 0] + damping - rho * (dudx + dvdy))
+            dp_dtau = beta2 * (s[i, j, 0] + damping - rho * (dudx + dvdy))
 
             # Momentum updates; MMS source terms are zero for the physical cavity
             du_dtau = (
@@ -903,13 +903,13 @@ def point_Jacobi():
             )
             dv_dtau = (
                 -u_vel * dvdx - v_vel * dvdy
-                + (s[i, j, two] - dpdy) / rho
+                + (s[i, j, 2] - dpdy) / rho
                 + nu * lap_v
             )
 
             u[i, j, 0] = p_old[i, j] + step * dp_dtau
             u[i, j, 1] = u_vel + step * du_dtau
-            u[i, j, two] = v_vel + step * dv_dtau
+            u[i, j, 2] = v_vel + step * dv_dtau
 
 # ************************************************************************
 
@@ -932,8 +932,8 @@ def pressure_rescaling():
     #global imax, jmax, imms, xmax, xmin, ymax, ymin, pinf
     #global u
 
-    iref = int((imax-1)/two+1)     # Set reference pressure to center of cavity
-    jref = int((jmax-1)/two+1)
+    iref = int((imax-1)/2+1)     # Set reference pressure to center of cavity
+    jref = int((jmax-1)/2+1)
     if imms == 1:
         x = (xmax - xmin)*(iref-1)/(imax - 1)
         y = (ymax - ymin)*(jref-1)/(jmax - 1)
@@ -1035,12 +1035,12 @@ def check_iterative_convergence(n, res, resinit, ninit, rtime, dtmin):
     # Write iterative residuals every 10 iterations
     if n % 10 == 0 or n == ninit:
         fp1.write(str(n)+" "+str(rtime)+" " +
-                  str(res[0])+" "+str(res[1])+" "+str(res[two]) + "\n")
+                  str(res[0])+" "+str(res[1])+" "+str(res[2]) + "\n")
         print(str(n)+" "+str(rtime)+" "+str(dtmin)+" " +
-              str(res[0])+" "+str(res[1])+" "+str(res[two])+"\n")
+              str(res[0])+" "+str(res[1])+" "+str(res[2])+"\n")
         # Maybe a need to format this better
 
-    # Write header for iterative residuals every two00 iterations
+    # Write header for iterative residuals every 200 iterations
     if n % 200 == 0 or n == ninit:
         print("Iter."+" "+"Time (s)"+" "+"dt (s)"+" " +
               "Continuity"+" "+"x-Momentum"+" "+"y-Momentum\n")
@@ -1049,12 +1049,12 @@ def check_iterative_convergence(n, res, resinit, ninit, rtime, dtmin):
 
 
 # ************************************************************************
-def Discretization_Error_Norms(rL1norm, rLtwonorm, rLinfnorm):
+def Discretization_Error_Norms(rL1norm, rL2norm, rLinfnorm):
 
     # Uses global variable(s): zero
     # Uses global variable(s): imax, jmax, neq, imms, xmax, xmin, ymax, ymin, rlength
     #Uses: u
-    # To modify: rL1norm, rLtwonorm, rLinfnorm
+    # To modify: rL1norm, rL2norm, rLinfnorm
 
     # i                        # i index (x direction)
     # j                        # j index (y direction)
@@ -1073,7 +1073,7 @@ def Discretization_Error_Norms(rL1norm, rLtwonorm, rLinfnorm):
             abs_error = np.abs(error)
 
             rL1norm[k, 0] = np.mean(abs_error)
-            rLtwonorm[k, 0] = np.sqrt(np.mean(error**2))
+            rL2norm[k, 0] = np.sqrt(np.mean(error**2))
             rLinfnorm[k, 0] = np.max(abs_error)
 
         print("MMS discretization error norms")
@@ -1081,7 +1081,7 @@ def Discretization_Error_Norms(rL1norm, rLtwonorm, rLinfnorm):
         for k, field in enumerate(("p", "u", "v")):
             print(
                 f"{field:<6} {rL1norm[k, 0]:14.6e} "
-                f"{rLtwonorm[k, 0]:14.6e} {rLinfnorm[k, 0]:14.6e}"
+                f"{rL2norm[k, 0]:14.6e} {rLinfnorm[k, 0]:14.6e}"
             )
     # ***************************************************************************
 
@@ -1113,8 +1113,8 @@ res = [0, 0, 0]              # Iterative residual for each equation
 resinit = [0, 0, 0]
 # L1 norm of discretization error for each equation
 rL1norm = [0, 0, 0]
-# Ltwo norm of discretization error for each equation
-rLtwonorm = [0, 0, 0]
+# L2 norm of discretization error for each equation
+rL2norm = [0, 0, 0]
 # Linfinity norm of discretization error for each equation
 rLinfnorm = [0, 0, 0]
 rtime = -99.9         # Variable to estimate simulation time
@@ -1138,7 +1138,7 @@ y = -99.9       # Temporary variable for y location
 #      resinit(k) = -99.9;
 #      res(k) = -99.9;
 #      rL1norm(k) = -99.9;
-#      rLtwonorm(k) = -99.9;
+#      rL2norm(k) = -99.9;
 #      rLinfnorm(k) = -99.9;
 
 
@@ -1152,7 +1152,7 @@ s = np.zeros((imax, jmax, neq))
 res = np.zeros((neq, 1))
 resinit = np.zeros((neq, 1))
 rL1norm = np.zeros((neq, 1))
-rLtwonorm = np.zeros((neq, 1))
+rL2norm = np.zeros((neq, 1))
 rLinfnorm = np.zeros((neq, 1))
 
 np.place(dt, dt == 0, -99.9)
@@ -1164,7 +1164,7 @@ np.place(s, s == 0, -99.9)
 np.place(res, res == 0, -99.9)
 np.place(resinit, resinit == 0, -99.9)
 np.place(rL1norm, rL1norm == 0, -99.9)
-np.place(rLtwonorm, rLtwonorm == 0, -99.9)
+np.place(rL2norm, rL2norm == 0, -99.9)
 np.place(rLinfnorm, rLinfnorm == 0, -99.9)
 
 
@@ -1206,7 +1206,7 @@ for n in np.arange(ninit, nmax, 1):
     # Calculate time step
     dtmin = compute_time_step(dtmin)
 
-    # Save u values at time level n (u and uold are twoD arrays)
+    # Save u values at time level n (u and uold are 2D arrays)
     uold = copy.deepcopy(u)
 
     if isgs == 1:  # Symmetric Gauss Seidel
@@ -1247,13 +1247,13 @@ for n in np.arange(ninit, nmax, 1):
     # Update the time
     rtime = rtime + dtmin
 
-    # Check iterative convergence using Ltwo norms of iterative residuals
+    # Check iterative convergence using L2 norms of iterative residuals
     res, resinit, conv = check_iterative_convergence(
         n, res, resinit, ninit, rtime, dtmin)
 
     if conv < toler:
         print(str(fp1)+" "+str(n)+" "+str(rtime)+" " +
-              str(res[0])+" "+str(res[1])+" "+str(res[two]))
+              str(res[0])+" "+str(res[1])+" "+str(res[2]))
         isConverged = 1
         break
 
@@ -1270,16 +1270,16 @@ if isConverged == 1:
     print("Solution converged in "+str(n)+" iterations!!!")
 
 # Calculate and Write Out Discretization Error Norms (will do this for MMS only)
-Discretization_Error_Norms(rL1norm, rLtwonorm, rLinfnorm)
+Discretization_Error_Norms(rL1norm, rL2norm, rLinfnorm)
 
 # Output solution and restart file
 write_output(n, resinit, rtime)
 
 # Close open files
 fp1.close
-fptwo.close
+fp2.close
 #   fclose(fp6); % Uncomment for debug output
 
 PrsMatrix = u[:, :, 0]  # output arrays
 uvelMatrix = u[:, :, 1]
-vvelMatrix = u[:, :, two]
+vvelMatrix = u[:, :, 2]
