@@ -34,8 +34,8 @@ global ummsArray  # Array of umms values (funtion umms evaluated at all nodes)
 
 
 # ************* Following are fixed parameters for array sizes **************
-imax = 65     # * Number of points in the x-direction (use odd numbers only)
-jmax = 65   # * Number of points in the y-direction (use odd numbers only)
+imax = 33     # * Number of points in the x-direction (use odd numbers only)
+jmax = 33   # * Number of points in the y-direction (use odd numbers only)
 neq = 3      # * Number of equation to be solved ( = 3: mass, x-mtm, y-mtm)
 
 # **********************************************
@@ -63,12 +63,12 @@ six = 6.0
 
 # -------- User sets inputs here  --------
 
-nmax = 500000             # Maximum number of iterations
+nmax = 101             # Maximum number of iterations
 iterout = 500            # Number of time steps between solution output
 imms = 1                  # Manufactured solution flag: = 1 for manuf. sol., = 0 otherwise
 isgs = 0                  # Symmetric Gauss-Seidel  flag: = 1 for SGS, = 0 for point Jacobi
 # Restart flag: = 1 for restart (file 'restart.in', = 0 for initial run
-irstr = 1
+irstr = 0
 # Order of pressure gradient: 0 = 2nd, 1 = 3rd (not needed)
 ipgorder = 0
 # variable to be used as the limiter sensor (= 0 for pressure)
@@ -80,7 +80,7 @@ Cx = 0.01               # Parameter for 4th order artificial viscosity in x
 Cy = 0.01               # Parameter for 4th order artificial viscosity in y
 toler = 1.e-10          # Tolerance for iterative residual convergence
 rkappa = 0.1            # Time derivative preconditioning constant
-Re = 100.0              # Reynolds number = rho*Uinf*L/rmu
+Re = 10.0              # Reynolds number = rho*Uinf*L/rmu
 # Initial pressure (N/m^2) -> from MMS value at cavity center
 pinf = 0.801333844662
 uinf = 1.0              # Lid velocity (m/s)
