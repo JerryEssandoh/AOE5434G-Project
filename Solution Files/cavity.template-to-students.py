@@ -287,7 +287,7 @@ def set_boundary_conditions():
 
 def bndry():
     #
-    # Uses global variable(s): zero, one, 2, half, imax, jmax, uinf
+    # Uses global variable(s): zero, one, two, half, imax, jmax, uinf
     # To modify: u
 
     # i                        # i index (x direction)
@@ -321,7 +321,7 @@ def bndry():
 
 def bndrymms():
     #
-    # Uses global variable(s): 2, imax, jmax, neq, xmax, xmin, ymax, ymin, rlength
+    # Uses global variable(s): two, imax, jmax, neq, xmax, xmin, ymax, ymin, rlength
     # To modify: u
     # i                        # i index (x direction)
     # j                        # j index (y direction)
@@ -336,20 +336,20 @@ def bndrymms():
     # Side Walls
     # Left Wall
     u[0, 1:jmax-1, 0:neq] = copy.deepcopy(ummsArray[0, 1:jmax-1, 0:neq])
-    u[0, 1:jmax-1, 0] = 2*u[1, 1:jmax-1, 0]-u[2, 1:jmax-1, 0]  # 2nd Order BC
+    u[0, 1:jmax-1, 0] = two*u[1, 1:jmax-1, 0]-u[2, 1:jmax-1, 0]  # 2nd Order BC
     # Right Wall
     u[imax-1, 1:jmax-1,
         0:neq] = copy.deepcopy(ummsArray[imax-1, 1:jmax-1, 0:neq])
-    u[imax-1, 1:jmax-1, 0] = 2*u[imax-2, 1:jmax-1, 0] - \
+    u[imax-1, 1:jmax-1, 0] = two*u[imax-2, 1:jmax-1, 0] - \
         u[imax-3, 1:jmax-1, 0]  # 2nd Order BC
 
     # Top/Bottom Walls
     # Bottom Wall
     u[0:imax, 0, 0:neq] = copy.deepcopy(ummsArray[0:imax, 0, 0:neq])
-    u[0:imax, 0, 0] = 2*u[0:imax, 1, 0] - u[0:imax, 2, 0]  # 2nd Order BC
+    u[0:imax, 0, 0] = two*u[0:imax, 1, 0] - u[0:imax, 2, 0]  # 2nd Order BC
     # Top Wall
     u[0:imax, jmax-1, 0:neq] = copy.deepcopy(ummsArray[0:imax, jmax-1, 0:neq])
-    u[0:imax, jmax-1, 0] = 2*u[0:imax, jmax-2, 0] - \
+    u[0:imax, jmax-1, 0] = two*u[0:imax, jmax-2, 0] - \
         u[0:imax, jmax-3, 0]  # 2nd Order BC
 
 # ************************************************************************
@@ -625,7 +625,7 @@ def srcmms_ymtm(x, y):
 
 def compute_time_step(dtmin):
 
-    # Uses global variable(s): one, 2, four, half, fourth
+    # Uses global variable(s): one, two, four, half, fourth
     # Uses global variable(s): vel2ref, rmu, rho, dx, dy, cfl, rkappa, imax, jmax
     #Uses: u
     # To Modify: dt, dtmin
@@ -647,7 +647,7 @@ def compute_time_step(dtmin):
 
         # Viscous time-step limit for explicit diffusion on a uniform 2D grid
     nu = rmu / rho
-    dtvisc = one / (2 * nu * (one / dx**2 + one / dy**2))
+    dtvisc = one / (two * nu * (one / dx**2 + one / dy**2))
 
     # Find the smallest local step for this iteration
     dtmin = float("inf")
@@ -676,7 +676,7 @@ def compute_time_step(dtmin):
 
 def Compute_Artificial_Viscosity():
 
-    # Uses global variable(s): zero, one, 2, four, six, half, fourth
+    # Uses global variable(s): zero, one, two, four, six, half, fourth
     # Uses global variable(s): imax, jmax, lim, rho, dx, dy, Cx, Cy, Cx2, Cy2, fsmall, vel2ref, rkappa
     # Uses: u
     # To Modify: artviscx, artviscy
@@ -795,7 +795,7 @@ def SGS_forward_sweep():
 
 def SGS_backward_sweep():
 
-    # Uses global variable(s): 2, three, six, half
+    # Uses global variable(s): two, three, six, half
     # Uses global variable(s): imax, imax, jmax, ipgorder, rho, rhoinv, dx, dy, rkappa, ...
     #                      xmax, xmin, ymax, ymin, rmu, vel2ref
     # Uses: artviscx, artviscy, dt, s
@@ -832,7 +832,7 @@ def SGS_backward_sweep():
 
 def point_Jacobi():
 
-    # Uses global variable(s): 2, three, six, half
+    # Uses global variable(s): two, three, six, half
     # Uses global variable(s): imax, imax, jmax, ipgorder, rho, rhoinv, dx, dy, rkappa, ...
     #                      xmax, xmin, ymax, ymin, rmu, vel2ref
     # Uses: uold, artviscx, artviscy, dt, s
