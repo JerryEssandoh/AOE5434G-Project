@@ -304,17 +304,17 @@ def bndry():
     u[-1, 1:-1, 1:3] = zero
 
     # Extrapolating sidewall pressure from the 2 nearest interior nodes
-    u[0, 1:-1, 0] = 2 * u[1, 1:-1, 0] - u[2, 1:-1, 0]
-    u[-1, 1:-1, 0] = 2 * u[-2, 1:-1, 0] - u[-3, 1:-1, 0]
+    u[0, 1:-1, 0] = two * u[1, 1:-1, 0] - u[2, 1:-1, 0]
+    u[-1, 1:-1, 0] = two * u[-2, 1:-1, 0] - u[-3, 1:-1, 0]
 
     # Bottom wall, including corners
     u[:, 0, 1:3] = zero
-    u[:, 0, 0] = 2 * u[:, 1, 0] - u[:, 2, 0]
+    u[:, 0, 0] = two * u[:, 1, 0] - u[:, 2, 0]
 
     # Top lid, including corners
     u[:, -1, 1] = uinf
     u[:, -1, 2] = zero
-    u[:, -1, 0] = 2 * u[:, -2, 0] - u[:, -3, 0]
+    u[:, -1, 0] = two * u[:, -2, 0] - u[:, -3, 0]
 
 # ************************************************************************
 
@@ -709,7 +709,7 @@ def Compute_Artificial_Viscosity():
         # Centering the x-stencil where 2 neighbors exist on each side.
         ic = i
         if i == 1:
-            ic = 2
+            ic = two
         elif i == imax - 2:
             ic = imax - 3
 
@@ -727,8 +727,8 @@ def Compute_Artificial_Viscosity():
             uvel2 = u_vel**2 + v_vel**2
             beta2 = max(uvel2, rkappa * vel2ref)
 
-            lambda_x = 0.5 * (abs(u_vel) + math.sqrt(u_vel**2 + 4.0 * beta2))
-            lambda_y = 0.5 * (abs(v_vel) + math.sqrt(v_vel**2 + 4.0 * beta2))
+            lambda_x = 0.5 * (abs(u_vel) + math.sqrt(u_vel**2 + four * beta2))
+            lambda_y = 0.5 * (abs(v_vel) + math.sqrt(v_vel**2 + four * beta2))
 
             # x derivative
             d4pdx4 = (
